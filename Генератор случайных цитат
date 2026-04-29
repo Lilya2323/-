@@ -1,0 +1,101 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import random
+import json
+import os
+
+HISTORY_FILE = "quotes.json"
+DEFAULT_QUOTES = [
+    {"text": "Величайшая слава не в том, чтобы никогда не ошибаться, а в том, чтобы уметь подниматься каждый раз, когда падаешь.", "author": "Конфуций", "topic": "Мотивация"},
+    {"text": "Единственный способ делать великие дела — любить то, что ты делаешь.", "author": "Стив Джобс", "topic": "Успех"},
+    {"text": "Жизнь — это то, что происходит, пока ты строишь другие планы.", "author": "Джон Леннон", "topic": "Жизнь"},
+    {"text": "Знание — сила.", "author": "Фрэнсис Бэкон", "topic": "Мудрость"},
+]
+
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return []
+
+def save_history(history):
+    with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+class QuoteGeneratorApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Генератор случайных цитат")
+        self.root.geometry("600x500")
+
+        self.all_quotes = DEFAULT_QUOTES.copy()
+        self.history = load_history()
+
+        self.create_widgets()
+        self.update_history_list()
+
+    def create_widgets(self):
+        # Фильтры (Автор и Тема)
+        frame_filter = tk.Frame(self.root)
+        frame_filter.pack(pady=10, fill='x')
+
+        tk.Label(frame_filter, text="Фильтр по автору:").pack(side='left', padx=5)
+        self.filter_author_var = tk.StringVar()
+        authors = ["Все"] + sorted(list(set(q["author"] for q in self.all_quotes)))
+        ttk.Combobox(frame_filter, textvariable=self.filter_author_var, values=authors, state="readonly", width=15).pack(side='left', padx=5)
+
+        tk.Label(frame_filter, text="Тема:").pack(side='left', padx=5)
+        self.filter_topic_var = tk.StringVar()
+        topics = ["Все"] + sorted(list(set(q["topic"] for q in self.all_quotes)))
+        ttk.Combobox(frame_filter, textvariable=self.filter_topic_var, values=topics, state="readonly", width=15).pack(side='left', padx=5)
+
+        tk.Button(frame_filter, text="Применить фильтры", command=self.apply_filters).pack(side='left', padx=10)
+
+        tk.Button(self.root, text="🎲 Сгенерировать цитату", command=self.generate_quote, bg='#d4edda').pack(pady=15, fill='x')
+
+        self.quote_display = tk.Label(self.root, text="Ваша цитата появится здесь", font=('Arial', 12), wraplength=500, justify='center')
+        self.quote_display.pack(pady=10)
+
+        tk.Label(self.root, text="История сгенерированных цитат:", font=('Arial', 10, 'bold')).pack(pady=5)
+        self.history_listbox = tk.Listbox(self.root, width=70, height=12)
+        self.history_listbox.pack(pady=5)
+
+    def generate_quote(self):
+        author_filter = self.filter_author_var.get()
+        topic_filter = self.filter_topic_var.get()
+
+        available_quotes = self.all_quotes.copy()
+        
+        if author_filter != "Все":
+            available_quotes = [q for q in available_quotes if q["author"] == author_filter]
+        
+        if topic_filter != "Все":
+            available_quotes = [q for q in available_quotes if q["topic"] == topic_filter]
+
+        if not available_quotes:
+            messagebox.showwarning("Нет цитат", f"Нет цитат по выбранным фильтрам: Автор - {author_filter}, Тема - {topic_filter}.")
+            return
+
+        quote = random.choice(available_quotes)
+        
+        self.quote_display.config(text=f'"{quote["text"]}"\n\n— {quote["author"]} ({quote["topic"]})')
+        
+        self.history.append(quote)
+        save_history(self.history)
+        
+        self.update_history_list()
+
+    def apply_filters(self):
+        self.update_history_list()
+
+    def update_history_list(self):
+        """Обновляет список истории с учетом текущих фильтров."""
+        self.history_listbox.delete(0, tk.END)
+        
+        author_filter = self.filter_author_var.get()
+        topic_filter = self.filter_topic_var.get()
+        
+        for quote in self.history:
+            if (author_filter == "Все" or quote["author"] == author_filter) and \
+               (topic_filter == "Все" or quote["topic"] == topic_filter):
+                self.history_listbox.insert(tk.END, f'"{quote["text"]}" — {quote["author"]}')
